@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hiring Lead Collector - Data Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <h1>📊 Hiring Lead Collector - Data Viewer</h1>
+      <p class="subtitle">Upload your exported CSV or JSON to view and analyze hiring leads</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="upload-section">
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" accept=".csv,.json" hidden>
+        <div class="upload-icon">📁</div>
+        <h3>Drag & Drop or Click to Upload</h3>
+        <p>Supports <strong>.csv</strong> and <strong>.json</strong> files exported from the extension</p>
+        <button class="btn btn-primary" id="browseBtn">Browse Files</button>
+      </div>
+    </section>
+
+    <section class="stats-section hidden" id="statsSection">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="totalLeads">0</span>
+          <span class="stat-label">Total Leads</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="withEmail">0</span>
+          <span class="stat-label">With Email</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="withLink">0</span>
+          <span class="stat-label">With Apply Link</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="withCompany">0</span>
+          <span class="stat-label">With Company</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="filters-section hidden" id="filtersSection">
+      <div class="filters-row">
+        <input type="text" id="searchInput" placeholder="🔍 Search leads..." class="filter-input">
+        <select id="emailFilter" class="filter-select">
+          <option value="">All Email Status</option>
+          <option value="has-email">Has Email</option>
+          <option value="no-email">No Email</option>
+        </select>
+        <select id="linkFilter" class="filter-select">
+          <option value="">All Link Status</option>
+          <option value="has-link">Has Apply Link</option>
+          <option value="no-link">No Apply Link</option>
+        </select>
+        <select id="companyFilter" class="filter-select">
+          <option value="">All Companies</option>
+        </select>
+        <select id="sortSelect" class="filter-select">
+          <option value="date-desc">Newest First</option>
+          <option value="date-asc">Oldest First</option>
+          <option value="author-asc">Author A-Z</option>
+          <option value="author-desc">Author Z-A</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="table-section hidden" id="tableSection">
+      <div class="table-container">
+        <table id="leadsTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Author</th>
+              <th>Company</th>
+              <th>Description</th>
+              <th>Emails</th>
+              <th>Apply Links</th>
+              <th>Post URL</th>
+              <th>Relevance</th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination">
+        <button class="btn btn-secondary" id="prevPage" disabled>Previous</button>
+        <span class="page-info" id="pageInfo">Page 1 of 1</span>
+        <button class="btn btn-secondary" id="nextPage" disabled>Next</button>
+      </div>
+    </section>
+
+    <section class="detail-section hidden" id="detailSection">
+      <div class="detail-panel">
+        <button class="close-detail" id="closeDetail">×</button>
+        <div id="detailContent"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>📥 <a href="lead-collector-extension.zip" download>Download Extension (ZIP)</a> | 
+      <a href="lead-collector-extention/" target="_blank">Extension Source</a> | 
+      Built for <a href="https://github.com" target="_blank">GitHub Pages</a> deployment</p>
+    </div>
+  </footer>
+
+  <!-- Description Modal -->
+  <div class="modal" id="descModal">
+    <div class="modal-content">
+      <button class="modal-close" id="closeDescModal" aria-label="Close">&times;</button>
+      <h3 id="descModalTitle">Post Description</h3>
+      <div id="descModalContent" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="viewer.js"></script>
+</body>
+</html>

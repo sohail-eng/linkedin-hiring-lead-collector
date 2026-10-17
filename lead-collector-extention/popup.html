@@ -1,0 +1,64 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hiring Lead Collector</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h2>Hiring Lead Collector</h2>
+
+    <div class="status">
+      Status: <strong id="status">Ready</strong>
+    </div>
+
+    <label for="locations">Locations (comma-separated)</label>
+    <input
+      id="locations"
+      type="text"
+      placeholder="Lahore, Karachi"
+    >
+    <p class="hint">
+      A post is saved if its text contains at least one location.
+      Leave empty to disable location filtering.
+    </p>
+
+    <label for="keywords">Job keywords (optional)</label>
+    <input
+      id="keywords"
+      type="text"
+      placeholder="Python, Django, Backend Developer"
+    >
+    <button id="resetFilters" class="secondary" style="margin-top: 8px;">Reset Filters</button>
+
+    <div class="stats">
+      <div>Processed <strong id="processed">0</strong></div>
+      <div>Saved <strong id="saved">0</strong></div>
+      <div>Duplicates <strong id="duplicates">0</strong></div>
+      <div>Filtered <strong id="filtered">0</strong></div>
+    </div>
+
+    <button id="start">Start</button>
+    <button id="stop" disabled>Stop & Export</button>
+    <button id="export">Export All Saved Leads</button>
+    <button id="clear" class="danger">Clear All Data</button>
+
+    <label for="exportFormat">Export Format</label>
+    <select id="exportFormat">
+      <option value="csv">CSV</option>
+      <option value="json">JSON</option>
+    </select>
+
+    <p id="message"></p>
+
+    <footer>
+      Records are saved locally in Chrome.
+    </footer>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 340px;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f7fa;
+  color: #1f2937;
+}
+
+main {
+  padding: 16px;
+}
+
+h2 {
+  margin: 0 0 14px;
+  font-size: 19px;
+}
+
+.status {
+  margin-bottom: 15px;
+  font-size: 13px;
+}
+
+label {
+  display: block;
+  margin: 12px 0 5px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.hint {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 15px 0;
+}
+
+.stats div {
+  padding: 10px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.stats strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 20px;
+}
+
+button {
+  width: 100%;
+  padding: 11px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  background: #0a66c2;
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#stop {
+  background: #b42318;
+}
+
+#export {
+  background: #334155;
+}
+
+#clear.danger {
+  background: #7f1d1d;
+}
+
+#clear.danger:hover {
+  background: #991b1b;
+}
+
+button.secondary {
+  background: #64748b;
+  width: 100%;
+}
+
+button.secondary:hover {
+  background: #475569;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#closeLogs {
+  width: 100%;
+  margin-top: 8px;
+  background: #475569;
+}
+
+#closeLogs:hover {
+  background: #334155;
+}
+
+#message {
+  min-height: 16px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+footer {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 10px;
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 10px;
+}
