@@ -15,8 +15,8 @@ A Chrome extension to collect hiring leads from LinkedIn posts, with a beautiful
 2. Click the extension icon
 3. **Optional**: Enter locations (e.g., `Lahore, Karachi`) and keywords (e.g., `Python, Django`)
 4. Click **Start**
-5. Scroll through posts manually
-6. Click **Stop & Export** or **Export All Saved Leads**
+5. Scroll through posts manually; the local guard screens every candidate and, with an Ollama key, uncertain cases are classified asynchronously
+6. Click **Stop Collection** to stop scanning, then click **Export All Saved Leads** separately
 
 ### 3. View Data Beautifully
 1. Deploy this repo to GitHub Pages (see below)
@@ -68,12 +68,13 @@ Then enable Pages in repo settings.
 |---------|-------------|
 | **Location Filtering** | Comma-separated cities (e.g., `Lahore, Karachi`) |
 | **Keyword Filtering** | Job keywords (e.g., `Python, Django, Backend`) |
+| **Hiring Guard + Ollama** | Local rule-based screening; all `KEEP`, `DENY`, and `CONFUSE` posts are saved/exported for testing; Ollama optionally adds a decision for uncertain posts |
 | **Contact Extraction** | Emails + application links (`lnkd.in`, job URLs) |
 | **Deduplication** | Smart duplicate detection across sessions |
 | **Date Parsing** | Relative times (1h, 3d, 1w) → ISO dates |
 | **Company Detection** | Extracts company from post |
 | **Export** | CSV or JSON with all fields |
-| **Privacy** | Data stored locally in Chrome only |
+| **Privacy** | All guard-labeled posts and Ollama-pending uncertain posts are stored locally; with a key configured, only uncertain eligible post text is sent to Ollama Cloud |
 
 ---
 
@@ -86,7 +87,11 @@ linkedin-hiring-lead-collector/
 ├── viewer.js           # Data parsing & display logic
 ├── lead-collector-extention/    # Chrome Extension
 │   ├── manifest.json   # MV3 manifest
-│   ├── background.js   # Service worker (storage, export)
+│   ├── background.js   # Service worker and message routing
+│   ├── post-processing.js # Filtering, guard routing, and classification queue
+│   ├── hiring-guard.js # Local KEEP / DENY / CONFUSE rules
+│   ├── ollama-client.js # Ollama Cloud request client
+│   ├── lead-export.js  # CSV and JSON export
 │   ├── content.js      # LinkedIn DOM extraction
 │   ├── popup.html      # Extension UI
 │   ├── popup.css       # Extension styling
@@ -111,7 +116,13 @@ linkedin-hiring-lead-collector/
 | `post_url` | LinkedIn post permalink |
 | `search_keyword` | Keywords used during collection |
 | `collected_at` | Timestamp of collection |
-| `relevance` | "Likely hiring" / "Needs review" |
+| `relevance` | Hiring assessment, including "Likely hiring", "Not hiring", or "Needs review" |
+| `relevance_reason` | Hiring relevance reason from the local guard or Ollama |
+| `ollama_decision` | Local guard decision until Ollama classifies a `CONFUSE` post; all outcomes are retained |
+| `guard_decision` | Local guard's `KEEP`, `DENY`, or `CONFUSE` triage result |
+| `guard_confidence` | Heuristic local-guard confidence score (not calibrated) |
+| `guard_reason` | Local guard's decision reason |
+| `classification_source` | `local_guard` or `ollama` |
 | `application_status` | "New" (for tracking) |
 
 ---
@@ -134,7 +145,8 @@ linkedin-hiring-lead-collector/
 
 ## 🔒 Privacy & Security
 
-- **No external servers**: All data stays in your Chrome storage
+- **Local storage by default**: Leads and settings are stored in your Chrome profile
+- **Optional Ollama Cloud**: Every eligible LinkedIn post is screened locally and all three guard results are retained for test/evaluation. Only uncertain posts are sent to Ollama when a key is configured; its result is saved alongside the local guard status. The API key is stored in Chrome local extension storage, which is not encrypted. The guard is heuristic and does not verify employers or vacancies.
 - **No tracking**: No analytics, no telemetry
 - **Local only**: Exports are downloaded to your machine
 - **GitHub Pages viewer**: Runs entirely in browser, no backend

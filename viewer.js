@@ -240,6 +240,12 @@ function normalizeLeads(leads) {
     search_keyword: lead.search_keyword || lead.keywords || '',
     collected_at: lead.collected_at || lead.collectedAt || '',
     relevance: lead.relevance || 'Needs review',
+    relevance_reason: lead.relevance_reason || '',
+    ollama_decision: lead.ollama_decision || '',
+    guard_decision: lead.guard_decision || '',
+    guard_confidence: lead.guard_confidence ?? '',
+    guard_reason: lead.guard_reason || '',
+    classification_source: lead.classification_source || '',
     application_status: lead.application_status || lead.status || 'New',
     original_date_label: lead.original_date_label || lead.dateLabel || ''
   }));
@@ -471,6 +477,40 @@ function openDetail(index) {
       <div class="detail-label">Relevance</div>
       <div class="detail-value"><span class="relevance-badge ${lead.relevance === 'Likely hiring' ? 'hiring' : 'review'}">${escapeHtml(lead.relevance)}</span></div>
     </div>
+    <div class="detail-field">
+      <div class="detail-label">JavaScript Guard Decision</div>
+      <div class="detail-value">${escapeHtml(lead.guard_decision || '—')}</div>
+    </div>
+    ${lead.guard_confidence !== '' ? `
+      <div class="detail-field">
+        <div class="detail-label">Guard Confidence (heuristic)</div>
+        <div class="detail-value">${escapeHtml(String(lead.guard_confidence))}</div>
+      </div>
+    ` : ''}
+    ${lead.guard_reason ? `
+      <div class="detail-field">
+        <div class="detail-label">Guard Reason</div>
+        <div class="detail-value">${escapeHtml(lead.guard_reason)}</div>
+      </div>
+    ` : ''}
+    ${lead.ollama_decision ? `
+      <div class="detail-field">
+        <div class="detail-label">Ollama Decision</div>
+        <div class="detail-value">${escapeHtml(lead.ollama_decision)}</div>
+      </div>
+    ` : ''}
+    ${lead.classification_source ? `
+      <div class="detail-field">
+        <div class="detail-label">Classification Source</div>
+        <div class="detail-value">${escapeHtml(lead.classification_source)}</div>
+      </div>
+    ` : ''}
+    ${lead.relevance_reason ? `
+      <div class="detail-field">
+        <div class="detail-label">AI Relevance Reason</div>
+        <div class="detail-value">${escapeHtml(lead.relevance_reason)}</div>
+      </div>
+    ` : ''}
     <div class="detail-field">
       <div class="detail-label">Application Status</div>
       <div class="detail-value">${escapeHtml(lead.application_status)}</div>

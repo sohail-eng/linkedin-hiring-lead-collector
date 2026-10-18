@@ -9,7 +9,17 @@
 </head>
 <body>
   <main>
-    <h2>Hiring Lead Collector</h2>
+    <header class="popup-header">
+      <h2>Hiring Lead Collector</h2>
+      <button
+        id="openSettings"
+        class="icon-button"
+        type="button"
+        aria-label="Open settings"
+        aria-haspopup="dialog"
+        title="Settings"
+      >&#9881;</button>
+    </header>
 
     <div class="status">
       Status: <strong id="status">Ready</strong>
@@ -32,17 +42,20 @@
       type="text"
       placeholder="Python, Django, Backend Developer"
     >
+
     <button id="resetFilters" class="secondary" style="margin-top: 8px;">Reset Filters</button>
 
     <div class="stats">
       <div>Processed <strong id="processed">0</strong></div>
       <div>Saved <strong id="saved">0</strong></div>
+      <div>AI pending <strong id="classificationPending">0</strong></div>
       <div>Duplicates <strong id="duplicates">0</strong></div>
       <div>Filtered <strong id="filtered">0</strong></div>
+      <div>AI errors <strong id="classificationErrors">0</strong></div>
     </div>
 
     <button id="start">Start</button>
-    <button id="stop" disabled>Stop & Export</button>
+    <button id="stop" disabled>Stop Collection</button>
     <button id="export">Export All Saved Leads</button>
     <button id="clear" class="danger">Clear All Data</button>
 
@@ -55,9 +68,40 @@
     <p id="message"></p>
 
     <footer>
-      Records are saved locally in Chrome.
+      All passing posts are saved with a guard status for testing. Open settings to configure Ollama.
     </footer>
   </main>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <div class="dialog-header">
+      <h2 id="settingsTitle">Settings</h2>
+      <button
+        id="closeSettings"
+        class="icon-button"
+        type="button"
+        aria-label="Close settings"
+        title="Close"
+      >&times;</button>
+    </div>
+    <label for="ollamaApiKey">Ollama Cloud API key (optional)</label>
+    <input
+      id="ollamaApiKey"
+      type="password"
+      autocomplete="off"
+      placeholder="Paste an Ollama API key"
+    >
+    <p class="hint">
+      All posts that pass your filters are saved with a JavaScript guard status
+      (KEEP, DENY, or CONFUSE) for testing. A saved key sends CONFUSE posts to
+      Ollama in the background.
+    </p>
+    <div id="ollamaKeyStatus" class="hint" role="status">Checking Ollama key...</div>
+    <p id="settingsMessage" class="settings-message" role="status"></p>
+    <div class="dialog-actions">
+      <button id="saveOllamaKey" type="button">Save API Key</button>
+      <button id="clearOllamaKey" class="secondary" type="button" disabled>Remove API Key</button>
+    </div>
+  </dialog>
 
   <script src="popup.js"></script>
 </body>

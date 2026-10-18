@@ -10,6 +10,20 @@ function showMessage(message) {
   $("message").textContent = message;
 }
 
+function showSettingsMessage(message) {
+  $("settingsMessage").textContent = message;
+}
+
+function showSettings() {
+  showSettingsMessage("");
+  refreshOllamaKeyStatus();
+  $("settingsDialog").showModal();
+}
+
+function hideSettings() {
+  $("settingsDialog").close();
+}
+
 function render(data) {
   const session = data.session || {};
 
@@ -19,11 +33,26 @@ function render(data) {
 
   $("processed").textContent = session.processed || 0;
   $("saved").textContent = session.saved || 0;
+  $("classificationPending").textContent = session.classificationPending || 0;
   $("duplicates").textContent = session.duplicates || 0;
   $("filtered").textContent = session.filtered || 0;
+  $("classificationErrors").textContent = session.classificationErrors || 0;
 
   $("start").disabled = Boolean(session.active);
   $("stop").disabled = !session.active;
+}
+
+async function refreshOllamaKeyStatus() {
+  const result = await send({ type: "GET_OLLAMA_SETTINGS" });
+  if (!result?.ok) {
+    $("ollamaKeyStatus").textContent = "Could not read Ollama settings.";
+    return;
+  }
+
+  $("ollamaKeyStatus").textContent = result.configured
+    ? "API key saved. All guard statuses are saved; Ollama also reviews uncertain cases."
+    : "No key saved. All local guard statuses are saved for testing.";
+  $("clearOllamaKey").disabled = !result.configured;
 }
 
 async function refresh() {
@@ -33,6 +62,46 @@ async function refresh() {
     render(result);
   }
 }
+
+$("saveOllamaKey").addEventListener("click", async () => {
+  const apiKey = $("ollamaApiKey").value.trim();
+  if (!apiKey) {
+    showSettingsMessage("Enter an API key before saving.");
+    return;
+  }
+
+  $("saveOllamaKey").disabled = true;
+  const result = await send({ type: "SAVE_OLLAMA_KEY", apiKey });
+  $("saveOllamaKey").disabled = false;
+
+  if (!result?.ok) {
+    showSettingsMessage(`Could not save API key: ${result?.error || "Unknown error"}`);
+    return;
+  }
+
+  $("ollamaApiKey").value = "";
+  await refreshOllamaKeyStatus();
+  showSettingsMessage("Ollama API key saved locally.");
+});
+
+$("clearOllamaKey").addEventListener("click", async () => {
+  const result = await send({ type: "REMOVE_OLLAMA_KEY" });
+  if (!result?.ok) {
+    showSettingsMessage(`Could not remove API key: ${result?.error || "Unknown error"}`);
+    return;
+  }
+
+  await refreshOllamaKeyStatus();
+  showSettingsMessage("API key removed. New posts will keep all local guard statuses.");
+});
+
+$("openSettings").addEventListener("click", showSettings);
+$("closeSettings").addEventListener("click", hideSettings);
+$("settingsDialog").addEventListener("click", (event) => {
+  if (event.target === $("settingsDialog")) {
+    hideSettings();
+  }
+});
 
 $("start").addEventListener("click", async () => {
   const locations = $("locations").value
@@ -83,25 +152,21 @@ function getExportFormat() {
 
 $("stop").addEventListener("click", async () => {
   $("stop").disabled = true;
-  showMessage("Stopping and exporting...");
-
-  const result = await send({ 
-    type: "STOP",
-    format: getExportFormat()
-  });
+  const result = await send({ type: "STOP" });
 
   await refresh();
 
   showMessage(
     result?.ok
-      ? `Exported ${result.count} unique leads. Check Downloads folder.`
-      : `Export failed: ${result?.error || "Unknown error"}. Try Export All Saved Leads.`
+      ? "Collection stopped. Use Export All Saved Leads when you are ready."
+      : `Could not stop collection: ${result?.error || "Unknown error"}`
   );
   $("stop").disabled = false;
 });
 
 $("export").addEventListener("click", async () => {
-  showMessage("Exporting all saved leads...");
+  $("export").disabled = true;
+  showMessage("Exporting finalized saved leads...");
   const result = await send({ 
     type: "EXPORT_ALL",
     format: getExportFormat()
@@ -109,13 +174,14 @@ $("export").addEventListener("click", async () => {
 
   showMessage(
     result?.ok
-      ? `Exported ${result.count} unique leads. Check Downloads folder.`
+      ? `Exported ${result.count} saved leads. Check Downloads folder.`
       : `Export failed: ${result?.error || "Unknown error"}`
   );
+  $("export").disabled = false;
 });
 
 $("clear").addEventListener("click", async () => {
-  if (!confirm("Delete ALL saved leads and reset counters? This cannot be undone.")) {
+  if (!confirm("Delete all saved leads, pending posts, and reset counters? This cannot be undone.")) {
     return;
   }
   $("clear").disabled = true;
@@ -143,6 +209,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && (changes.hiringLeadRecords || changes.hiringLeadSession)) {
     refresh();
   }
+  if (area === "local" && changes.hiringLeadOllamaApiKey) {
+    refreshOllamaKeyStatus();
+  }
 });
 
 // Periodic refresh as fallback (every 3 seconds when popup is open)
@@ -158,3 +227,4 @@ document.addEventListener("visibilitychange", () => {
 
 // Initial refresh
 refresh();
+refreshOllamaKeyStatus();

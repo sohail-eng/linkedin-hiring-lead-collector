@@ -612,16 +612,41 @@
     }
   }
 
-  async function flushBatch(batch, processedSet) {
+  function flushBatch(batch, processedSet) {
     const records = batch.map(({ record }) => record);
-    try {
-      await sendRecords(records);
-      for (const { card } of batch) {
-        processedSet.add(card);
-      }
-    } catch (error) {
-      console.error("[Hiring Collector] Failed to submit batch", error);
+    const responsePromise = sendRecords(records);
+    for (const { card } of batch) {
+      processedSet.add(card);
     }
+
+    responsePromise
+      .then((response) => {
+        const results = response?.results;
+        if (!response?.ok || !Array.isArray(results)) {
+          addLog("error", "Background did not return post-processing results", {
+            error: response?.error || "Missing results"
+          });
+          return;
+        }
+
+        results.forEach((result) => {
+          if (result?.classificationError) {
+            addLog("error", "Ollama classification failed; retry with Export All after checking the key or account quota", {
+              error: result.classificationError
+            });
+          }
+        });
+
+        if (results.length !== batch.length) {
+          addLog("error", "Background returned an incomplete batch result", {
+            expected: batch.length,
+            received: results.length
+          });
+        }
+      })
+      .catch((error) => {
+        addLog("error", "Failed to submit batch", { error: String(error) });
+      });
   }
 
   function scheduleScan() {

@@ -5,6 +5,8 @@
 
 body {
   width: 340px;
+  max-height: 640px;
+  overflow-y: auto;
   margin: 0;
   font-family: Arial, sans-serif;
   background: #f5f7fa;
@@ -16,8 +18,38 @@ main {
 }
 
 h2 {
-  margin: 0 0 14px;
+  margin: 0;
   font-size: 19px;
+}
+
+.popup-header,
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.popup-header {
+  margin-bottom: 14px;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #334155;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: #e2e8f0;
 }
 
 .status {
@@ -109,6 +141,11 @@ button.secondary:hover {
   background: #475569;
 }
 
+button.secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .hidden {
   display: none !important;
 }
@@ -135,4 +172,48 @@ footer {
   margin-top: 12px;
   color: #64748b;
   font-size: 10px;
+}
+
+dialog {
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  padding: 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  color: #1f2937;
+  box-shadow: 0 18px 48px rgb(15 23 42 / 24%);
+}
+
+dialog::backdrop {
+  background: rgb(15 23 42 / 45%);
+}
+
+.dialog-header {
+  margin-bottom: 10px;
+}
+
+.dialog-header .icon-button {
+  font-size: 25px;
+}
+
+.settings-message {
+  min-height: 16px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dialog-actions button {
+  flex: 1;
+  margin-top: 0;
+}
+
+.dialog-actions button.secondary {
+  width: auto;
 }

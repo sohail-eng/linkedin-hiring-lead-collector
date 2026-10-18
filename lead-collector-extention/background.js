@@ -1,8 +1,31 @@
+importScripts(
+  "hiring-guard.js",
+  "ollama-client.js",
+  "post-processing.js",
+  "lead-export.js"
+);
 
 const RECORDS_KEY = "hiringLeadRecords";
+const PENDING_RECORDS_KEY = "hiringLeadPendingRecords";
 const SESSION_KEY = "hiringLeadSession";
 const LOGS_KEY = "hiringLeadLogs";
+const OLLAMA_KEY_KEY = "hiringLeadOllamaApiKey";
 const MAX_LOGS = 500;
+let extractedPostsQueue = Promise.resolve();
+let classificationQueue = Promise.resolve();
+let classificationPendingWriteQueue = Promise.resolve();
+let recordStateQueue = Promise.resolve();
+const classificationTasksByKey = new Map();
+let pendingClassifications = 0;
+
+let storageAccessError;
+const storageAccessReady = chrome.storage.local.setAccessLevel({
+  accessLevel: "TRUSTED_CONTEXTS"
+})
+  .catch((error) => {
+    storageAccessError = error;
+    console.error("[Hiring Collector] Failed to restrict local storage access:", error);
+  });
 
 async function getState() {
   const data = await chrome.storage.local.get([
@@ -22,398 +45,119 @@ async function getState() {
   };
 }
 
-function normalizeText(value) {
-  return String(value || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+async function getPendingRecords() {
+  const data = await chrome.storage.local.get([PENDING_RECORDS_KEY]);
+  return Array.isArray(data[PENDING_RECORDS_KEY])
+    ? data[PENDING_RECORDS_KEY]
+    : [];
 }
 
-function normalizeUrl(value) {
-  try {
-    const url = new URL(value);
-    url.search = "";
-    url.hash = "";
-    return url.href.replace(/\/$/, "");
-  } catch {
-    return "";
-  }
+function withRecordStateLock(operation) {
+  const task = recordStateQueue.then(operation);
+  recordStateQueue = task.then(() => undefined, () => undefined);
+  return task;
 }
 
-function getFingerprint(record) {
-  return normalizeText(record.description);
+function enqueuePostProcessing(incoming, classificationTasks) {
+  return withRecordStateLock(() => processPost(incoming, classificationTasks));
 }
 
-function getCompositeKey(record) {
-  const url = normalizeUrl(record.post_url);
-  const author = normalizeText(record.author_name);
-  const date = record.post_date || "";
-  const fingerprint = getFingerprint(record);
+async function migrateExistingRecords() {
+  const settings = await chrome.storage.local.get([OLLAMA_KEY_KEY]);
+  const apiKey = settings[OLLAMA_KEY_KEY];
 
-  // Priority: URL > author+date+fingerprint > fingerprint alone
-  if (url) {
-    return `url:${url}`;
-  }
-  if (author && date && fingerprint) {
-    return `composite:${author}|${date}|${fingerprint}`;
-  }
-  return `fingerprint:${fingerprint}`;
-}
+  await withRecordStateLock(async () => {
+    const state = await getState();
+    const pendingRecords = await getPendingRecords();
+    const pendingKeys = new Set(pendingRecords.map(getCompositeKey));
 
-function getEmails(text) {
-  const matches = text.match(
-    /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi
-  ) || [];
+    for (const record of state.records) {
+      if (!record.guard_decision) {
+        const previousDecision = record.ollama_decision;
+        const previousSource = record.classification_source;
+        const previousRelevance = record.relevance;
+        const previousReason = record.relevance_reason;
+        applyLocalHiringGuard(record);
+        if (previousSource === "ollama" && previousDecision) {
+          record.ollama_decision = previousDecision;
+          record.classification_source = previousSource;
+          record.relevance = previousRelevance;
+          record.relevance_reason = previousReason;
+        }
+      }
 
-  return [...new Set(matches.map((email) => email.toLowerCase()))];
-}
-
-function getApplicationLinks(text) {
-  // Extract LinkedIn short links (lnkd.in), apply links, and job posting URLs
-  const patterns = [
-    /https?:\/\/lnkd\.in\/[a-zA-Z0-9_-]+/gi,           // lnkd.in short links
-    /https?:\/\/www\.linkedin\.com\/jobs\/view\/[a-zA-Z0-9_-]+/gi,  // LinkedIn job views
-    /https?:\/\/www\.linkedin\.com\/jobs\/[a-zA-Z0-9_\/\-?=&]+/gi,   // Other LinkedIn job URLs
-    /https?:\/\/[a-zA-Z0-9.-]+\.(?:com|org|net|io|co|pk|in|uk)\/[a-zA-Z0-9_\/\-?=&]*(?:apply|application|job|career)[a-zA-Z0-9_\/\-?=&]*/gi  // External apply links
-  ];
-
-  const allMatches = [];
-  for (const pattern of patterns) {
-    const matches = text.match(pattern) || [];
-    allMatches.push(...matches);
-  }
-
-  // Deduplicate and normalize
-  return [...new Set(allMatches.map(url => url.toLowerCase()))];
-}
-
-function matchesLocations(description, locations) {
-  if (!locations?.length) return true;
-
-  const text = normalizeText(description);
-
-  return locations.some((location) =>
-    text.includes(normalizeText(location))
-  );
-}
-
-function matchesKeywords(description, keywords) {
-  if (!keywords?.length) return true;
-
-  const text = normalizeText(description);
-
-  return keywords.some((keyword) =>
-    text.includes(normalizeText(keyword))
-  );
-}
-
-async function processPost(incoming) {
-    const { records, session } = await getState();
-
-    if (!session.active) {
-      console.log("[Hiring Collector] BG: Session not active, ignoring");
-      return { ignored: true };
-    }
-
-    const description = incoming.description || "";
-
-    session.processed = (session.processed || 0) + 1;
-    console.log("[Hiring Collector] BG: processPost called, processed now:", session.processed);
-
-    const locationMatch = matchesLocations(description, session.locations);
-    const keywordMatch = matchesKeywords(description, session.keywords);
-
-    console.log("[Hiring Collector] BG Filter Check:", {
-      hasLocations: session.locations?.length > 0,
-      hasKeywords: session.keywords?.length > 0,
-      locations: session.locations,
-      keywords: session.keywords,
-      locationMatch,
-      keywordMatch,
-      descPreview: description.slice(0, 100)
-    });
-
-    if (!locationMatch || !keywordMatch) {
-    session.filtered = (session.filtered || 0) + 1;
-
-    await chrome.storage.local.set({
-      [SESSION_KEY]: session
-    });
-
-    console.log("[Hiring Collector] BG Filtered:", { filtered: session.filtered });
-    return { filtered: true };
-  }
-
-  // Require at least one email OR application link
-  const incomingEmails = incoming.emails || getEmails(description);
-  const incomingLinks = incoming.application_links || getApplicationLinks(description);
-  
-  if (incomingEmails.length === 0 && incomingLinks.length === 0) {
-    session.filtered = (session.filtered || 0) + 1;
-    await chrome.storage.local.set({ [SESSION_KEY]: session });
-    console.log("[Hiring Collector] BG Skipped: No email or application link");
-    return { filtered: true, reason: "no_contact_info" };
-  }
-
-  console.log("[Hiring Collector] BG: Passed filters, checking duplicates...");
-  const incomingKey = getCompositeKey(incoming);
-
-  const existing = records.find((record) => {
-    return getCompositeKey(record) === incomingKey;
-  });
-
-  console.log("[Hiring Collector] BG: Duplicate check, existing:", !!existing, "records count:", records.length);
-
-  if (existing) {
-    existing.last_seen_at = new Date().toISOString();
-
-    // Fill missing fields if the same post is encountered again.
-    for (const field of [
-      "post_date",
-      "original_date_label",
-      "author_name",
-      "company"
-    ]) {
-      if (!existing[field] && incoming[field]) {
-        existing[field] = incoming[field];
+      if (record.guard_decision === "CONFUSE" && apiKey &&
+          record.ollama_decision !== "KEEP" &&
+          record.ollama_decision !== "DENY") {
+        const key = getCompositeKey(record);
+        if (!pendingKeys.has(key)) {
+          pendingKeys.add(key);
+          pendingRecords.push(record);
+        }
       }
     }
 
-    existing.emails = [
-      ...new Set([
-        ...(existing.emails || []),
-        ...(incoming.emails || [])
-      ])
-    ];
-
-    existing.application_links = [
-      ...new Set([
-        ...(existing.application_links || []),
-        ...(incoming.application_links || [])
-      ])
-    ];
-
-    try {
-      await chrome.storage.local.set({
-        [RECORDS_KEY]: records
-      });
-      session.duplicates = (session.duplicates || 0) + 1;
-      await chrome.storage.local.set({
-        [SESSION_KEY]: session
-      });
-      console.log("[Hiring Collector] BG: Duplicate updated successfully");
-    } catch (err) {
-      console.error("[Hiring Collector] BG: Failed to save duplicate:", err);
-    }
-
-    return { duplicate: true };
-  }
-
-  const incomingUrl = normalizeUrl(incoming.post_url);
-
-  console.log("[Hiring Collector] BG: Saving new record...");
-  
-  console.log("[Hiring Collector] BG: Getting emails...");
-  const emails = incoming.emails || getEmails(description);
-  console.log("[Hiring Collector] BG: Emails:", emails);
-  
-  console.log("[Hiring Collector] BG: Getting application links...");
-  const application_links = incoming.application_links || getApplicationLinks(description);
-  console.log("[Hiring Collector] BG: Application links:", application_links);
-  
-  console.log("[Hiring Collector] BG: Checking incomingUrl...");
-  console.log("[Hiring Collector] BG: incomingUrl:", incomingUrl, "incoming.post_url:", incoming.post_url);
-  const post_url = incomingUrl || incoming.post_url || "";
-  console.log("[Hiring Collector] BG: post_url:", post_url);
-  
-  console.log("[Hiring Collector] BG: Checking session.keywords...");
-  console.log("[Hiring Collector] BG: session.keywords:", session.keywords, "type:", typeof session.keywords);
-  const search_keyword = Array.isArray(session.keywords) ? session.keywords.join(", ") : "";
-  console.log("[Hiring Collector] BG: search_keyword:", search_keyword);
-  
-  console.log("[Hiring Collector] BG: Creating record object...");
-  const record = {
-    post_date: incoming.post_date || "",
-    original_date_label: incoming.original_date_label || "",
-    description,
-    emails,
-    application_links,
-    author_name: incoming.author_name || "",
-    company: incoming.company || "",
-    post_url,
-    search_keyword,
-    collected_at: new Date().toISOString(),
-    last_seen_at: new Date().toISOString(),
-    relevance: incoming.relevance || "Needs review",
-    application_status: "New"
-  };
-  
-  console.log("[Hiring Collector] BG: Record object created");
-  console.log("[Hiring Collector] BG: Record size approx:", JSON.stringify(record).length, "chars");
-  console.log("[Hiring Collector] BG: Current records count:", records.length);
-
-  try {
-    records.push(record);
-    console.log("[Hiring Collector] BG: Record pushed to array");
-  } catch (err) {
-    console.error("[Hiring Collector] BG: Failed to push record:", err);
-    return { saved: false, error: String(err) };
-  }
-
-  session.saved = (session.saved || 0) + 1;
-
-  try {
-    console.log("[Hiring Collector] BG: Attempting storage write...");
     await chrome.storage.local.set({
-      [RECORDS_KEY]: records,
-      [SESSION_KEY]: session
+      [RECORDS_KEY]: state.records,
+      [PENDING_RECORDS_KEY]: pendingRecords
     });
-    console.log("[Hiring Collector] BG: Storage write completed");
-    
-    // Verify the write
-    const verify = await chrome.storage.local.get([RECORDS_KEY]);
-    console.log("[Hiring Collector] BG: Verify - records in storage:", verify[RECORDS_KEY]?.length);
-    
-    console.log("[Hiring Collector] BG: Record saved successfully, saved count:", session.saved);
-  } catch (err) {
-    console.error("[Hiring Collector] BG: Failed to save record:", err);
-    console.error("[Hiring Collector] BG: Error stack:", err?.stack);
-    return { saved: false, error: String(err) };
-  }
-
-  return { saved: true };
-}
-
-function csvEscape(value) {
-  let text = Array.isArray(value)
-    ? value.join("; ")
-    : String(value ?? "");
-
-  // Reduce CSV formula injection risk in spreadsheet applications.
-  if (/^[\s]*[=+\-@]/.test(text)) {
-    text = "'" + text;
-  }
-
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-function makeCsv(records) {
-  const columns = [
-    "post_date",
-    "description",
-    "emails",
-    "application_links",
-    "author_name",
-    "company",
-    "post_url",
-    "search_keyword",
-    "collected_at",
-    "relevance",
-    "application_status",
-    "original_date_label"
-  ];
-
-  const sorted = [...records].sort((a, b) => {
-    const dateA = Date.parse(a.post_date);
-    const dateB = Date.parse(b.post_date);
-
-    if (Number.isNaN(dateA) && Number.isNaN(dateB)) return 0;
-    if (Number.isNaN(dateA)) return 1;
-    if (Number.isNaN(dateB)) return -1;
-
-    return dateB - dateA;
   });
 
-  return [
-    columns.map(csvEscape).join(","),
-    ...sorted.map((record) =>
-      columns.map((column) => csvEscape(record[column])).join(",")
-    )
-  ].join("\r\n");
-}
-
-async function exportCsv(records) {
-  const csv = "\uFEFF" + makeCsv(records);
-
-  const url =
-    "data:text/csv;charset=utf-8," +
-    encodeURIComponent(csv);
-
-  const date = new Date().toISOString().slice(0, 10);
-
-  try {
-    await chrome.downloads.download({
-      url,
-      filename: `hiring-leads-${date}.csv`,
-      saveAs: true,
-      conflictAction: "uniquify"
-    });
-  } catch (error) {
-    console.error("[Hiring Collector] Export failed:", error);
-    throw new Error(`Download failed: ${error.message}`);
-  }
-
-  return records.length;
-}
-
-async function exportJson(records) {
-  const json = JSON.stringify(records, null, 2);
-  
-  const url =
-    "data:application/json;charset=utf-8," +
-    encodeURIComponent(json);
-
-  const date = new Date().toISOString().slice(0, 10);
-
-  try {
-    await chrome.downloads.download({
-      url,
-      filename: `hiring-leads-${date}.json`,
-      saveAs: true,
-      conflictAction: "uniquify"
-    });
-  } catch (error) {
-    console.error("[Hiring Collector] JSON Export failed:", error);
-    throw new Error(`Download failed: ${error.message}`);
-  }
-
-  return records.length;
+  return apiKey;
 }
 
 chrome.runtime.onInstalled.addListener(async (details) => {
-  // Only initialize on first install, not on updates
-  if (details.reason !== "install") return;
-
+  await storageAccessReady;
+  if (storageAccessError) {
+    throw new Error("Could not secure extension storage access.");
+  }
   const data = await chrome.storage.local.get([
     RECORDS_KEY,
+    PENDING_RECORDS_KEY,
     SESSION_KEY
   ]);
 
-  if (!Array.isArray(data[RECORDS_KEY])) {
+  if (details.reason === "install") {
     await chrome.storage.local.set({
-      [RECORDS_KEY]: []
+      [RECORDS_KEY]: Array.isArray(data[RECORDS_KEY]) ? data[RECORDS_KEY] : [],
+      [PENDING_RECORDS_KEY]: Array.isArray(data[PENDING_RECORDS_KEY])
+        ? data[PENDING_RECORDS_KEY]
+        : []
     });
+    if (!data[SESSION_KEY]) {
+      await chrome.storage.local.set({
+        [SESSION_KEY]: {
+          active: false,
+          processed: 0,
+          saved: 0,
+          duplicates: 0,
+          filtered: 0
+        }
+      });
+    }
+    return;
   }
 
-  if (!data[SESSION_KEY]) {
-    await chrome.storage.local.set({
-      [SESSION_KEY]: {
-        active: false,
-        processed: 0,
-        saved: 0,
-        duplicates: 0,
-        filtered: 0
-      }
-    });
+  if (details.reason === "update") {
+    const apiKey = await migrateExistingRecords();
+    if (apiKey) {
+      retryPendingClassifications(apiKey).catch((error) => {
+        console.error("[Hiring Collector] Could not retry pending Ollama classifications:", error);
+      });
+    }
   }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handleMessage = async () => {
+    await storageAccessReady;
+    if (storageAccessError) {
+      throw new Error("Could not secure extension storage access.");
+    }
     switch (message.type) {
       case "GET_STATE": {
         const state = await getState();
-        console.log("[Hiring Collector] BG GET_STATE:", { 
+        console.log("[Hiring Collector] BG GET_STATE:", {
           sessionActive: state.session?.active,
           recordsCount: state.records?.length,
           sessionKeys: state.session ? Object.keys(state.session) : null
@@ -423,11 +167,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       case "START": {
         const state = await getState();
-
-        // Ensure empty arrays (not undefined) for proper filter disabling
         const locations = Array.isArray(message.locations) ? message.locations : [];
         const keywords = Array.isArray(message.keywords) ? message.keywords : [];
-
         const session = {
           active: true,
           startedAt: new Date().toISOString(),
@@ -436,19 +177,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           processed: 0,
           saved: 0,
           duplicates: 0,
-          filtered: 0
+          filtered: 0,
+          classificationErrors: 0
         };
 
-        console.log("[Hiring Collector] BG START:", { locations, keywords });
-
         try {
-          await chrome.storage.local.set({
-            [SESSION_KEY]: session
+          await chrome.storage.local.set({ [SESSION_KEY]: session });
+        } catch (error) {
+          console.error("[Hiring Collector] Failed to start collection:", error);
+          return { ok: false, error: String(error) };
+        }
+
+        const settings = await chrome.storage.local.get([OLLAMA_KEY_KEY]);
+        if (settings[OLLAMA_KEY_KEY]) {
+          retryPendingClassifications(settings[OLLAMA_KEY_KEY]).catch((error) => {
+            console.error("[Hiring Collector] Could not retry pending Ollama classifications:", error);
           });
-          console.log("[Hiring Collector] BG START: Session saved, active=true");
-        } catch (err) {
-          console.error("[Hiring Collector] BG START: Failed to save session:", err);
-          return { ok: false, error: String(err) };
         }
 
         return {
@@ -459,60 +203,98 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       case "STOP": {
+        await extractedPostsQueue;
         const state = await getState();
-
         state.session.active = false;
         state.session.stoppedAt = new Date().toISOString();
-
-        await chrome.storage.local.set({
-          [SESSION_KEY]: state.session
-        });
-
-        const format = message.format || "csv";
-        const count = format === "json" 
-          ? await exportJson(state.records) 
-          : await exportCsv(state.records);
-
-        return { ok: true, count };
+        await chrome.storage.local.set({ [SESSION_KEY]: state.session });
+        return { ok: true };
       }
 
       case "EXPORT_ALL": {
-        const { records } = await getState();
+        const records = await getRecordsForExport();
         const format = message.format || "csv";
-        const count = format === "json" 
-          ? await exportJson(records) 
+        const count = format === "json"
+          ? await exportJson(records)
           : await exportCsv(records);
-
         return { ok: true, count };
       }
 
       case "CLEAR_ALL": {
         await chrome.storage.local.set({
           [RECORDS_KEY]: [],
+          [PENDING_RECORDS_KEY]: [],
           [SESSION_KEY]: {
             active: false,
             processed: 0,
             saved: 0,
             duplicates: 0,
-            filtered: 0
+            filtered: 0,
+            classificationErrors: 0
           }
         });
         return { ok: true };
       }
 
+      case "GET_OLLAMA_SETTINGS": {
+        const settings = await chrome.storage.local.get([OLLAMA_KEY_KEY]);
+        return { ok: true, configured: Boolean(settings[OLLAMA_KEY_KEY]) };
+      }
+
+      case "SAVE_OLLAMA_KEY": {
+        const apiKey = typeof message.apiKey === "string"
+          ? message.apiKey.trim()
+          : "";
+        if (!apiKey) {
+          return { ok: false, error: "API key cannot be empty." };
+        }
+        await chrome.storage.local.set({ [OLLAMA_KEY_KEY]: apiKey });
+        retryPendingClassifications(apiKey).catch((error) => {
+          console.error("[Hiring Collector] Could not retry pending Ollama classifications:", error);
+        });
+        return { ok: true };
+      }
+
+      case "REMOVE_OLLAMA_KEY": {
+        await chrome.storage.local.remove([OLLAMA_KEY_KEY]);
+        return { ok: true };
+      }
+
       case "EXTRACTED_POST": {
-        const result = await processPost(message.record || {});
-        return { ok: true, ...result };
+        const classificationTasks = [];
+        const result = await enqueuePostProcessing(
+          message.record || {},
+          classificationTasks
+        );
+        const [classificationResult] = await Promise.all(classificationTasks);
+        const { classificationTaskIndex, ...postResult } = result;
+        return { ok: true, ...postResult, ...classificationResult };
       }
 
       case "EXTRACTED_POSTS_BATCH": {
         const records = message.records || [];
-        const results = [];
-        for (const record of records) {
-          const result = await processPost(record);
-          results.push(result);
-        }
-        return { ok: true, results };
+        const classificationTasks = [];
+        const processing = extractedPostsQueue.then(async () => {
+          const results = [];
+          for (const record of records) {
+            results.push(await enqueuePostProcessing(record, classificationTasks));
+          }
+          return { ok: true, results };
+        });
+        extractedPostsQueue = processing.then(() => undefined, () => undefined);
+        const result = await processing;
+        const classificationResults = await Promise.all(classificationTasks);
+        result.results = result.results.map((postResult) => {
+          const { classificationTaskIndex, ...publicResult } = postResult;
+          if (!Number.isInteger(classificationTaskIndex)) {
+            return publicResult;
+          }
+          return {
+            ...publicResult,
+            ...classificationResults[classificationTaskIndex]
+          };
+        });
+        return result;
       }
 
       case "LOG": {
@@ -562,12 +344,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-// Global error handlers to prevent service worker crashes
 self.addEventListener("error", (event) => {
   console.error("[Hiring Collector] Background script error:", event.error);
 });
 
 self.addEventListener("unhandledrejection", (event) => {
   console.error("[Hiring Collector] Background unhandled rejection:", event.reason);
-  event.preventDefault(); // Prevent service worker termination
+  event.preventDefault();
 });

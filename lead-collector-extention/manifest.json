@@ -2,11 +2,13 @@
 {
   "manifest_version": 3,
   "name": "Hiring Lead Collector",
-  "version": "1.0.1",
+  "version": "1.0.6",
+  "minimum_chrome_version": "102",
   "permissions": ["storage", "downloads", "activeTab"],
   "host_permissions": [
     "https://www.linkedin.com/*",
-    "https://*.linkedin.com/*"
+    "https://*.linkedin.com/*",
+    "https://ollama.com/*"
   ],
   "background": {
     "service_worker": "background.js"
