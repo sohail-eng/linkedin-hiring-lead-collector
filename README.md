@@ -82,9 +82,15 @@ Then enable Pages in repo settings.
 
 ```
 linkedin-hiring-lead-collector/
-├── index.html          # GitHub Pages entry point
-├── styles.css          # Viewer styling
-├── viewer.js           # Data parsing & display logic
+├── index.html          # GitHub Pages entry (Data Viewer + Auto-Apply tabs)
+├── styles.css          # Viewer / tab styling
+├── viewer.js           # Data parsing, display, tab switching
+├── apply-workflow/     # Python auto-apply (score → email + CV.pdf)
+│   ├── apply_jobs.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── cv-compress-prompt.md
+│   └── README.md
 ├── lead-collector-extention/    # Chrome Extension
 │   ├── manifest.json   # MV3 manifest
 │   ├── background.js   # Service worker and message routing
@@ -99,6 +105,17 @@ linkedin-hiring-lead-collector/
 │   └── README.md       # Extension docs
 └── README.md           # This file
 ```
+
+### Auto-Apply (optional)
+
+Open the **Auto-Apply** tab on the site for full setup. Short version:
+
+1. Export leads from the extension → rename to `apply-workflow/hiring-leads.csv`
+2. Put `cv.pdf` and a compressed `cv.md` in `apply-workflow/` (use the CV compress prompt on that tab)
+3. Copy `.env.example` → `.env` (Ollama key + SMTP)
+4. `pip install -r requirements.txt` then `python apply_jobs.py`
+
+Scores are always saved in `apply-results.json`. Emails (with CV PDF) are sent only when score &gt; 70. Re-runs skip already processed posts. Any Ollama failure prints the error and stops.
 
 ---
 

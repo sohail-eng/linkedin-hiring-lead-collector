@@ -3,159 +3,349 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hiring Lead Collector - Data Viewer</title>
+  <title>Hiring Lead Collector</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="header">
     <div class="container">
-      <h1>📊 Hiring Lead Collector - Data Viewer</h1>
-      <p class="subtitle">Upload your exported CSV or JSON to view and analyze hiring leads</p>
+      <h1>Hiring Lead Collector</h1>
+      <p class="subtitle">View exported leads, or run the auto-apply workflow against your CV</p>
     </div>
   </header>
 
+  <div class="container">
+    <nav class="tabs" role="tablist" aria-label="Main sections">
+      <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab="viewer" id="tabViewer">
+        Data Viewer
+      </button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="apply" id="tabApply">
+        Auto-Apply
+      </button>
+    </nav>
+  </div>
+
   <main class="container">
-    <section class="upload-section">
-      <div class="upload-area" id="uploadArea">
-        <input type="file" id="fileInput" accept=".csv,.json" hidden>
-        <div class="upload-icon">📁</div>
-        <h3>Drag & Drop or Click to Upload</h3>
-        <p>Supports <strong>.csv</strong> and <strong>.json</strong> files exported from the extension</p>
-        <button class="btn btn-primary" id="browseBtn">Browse Files</button>
-      </div>
-    </section>
+    <!-- ========== DATA VIEWER TAB ========== -->
+    <div id="panelViewer" class="tab-panel active" role="tabpanel" aria-labelledby="tabViewer">
+      <section class="upload-section">
+        <div class="upload-area" id="uploadArea">
+          <input type="file" id="fileInput" accept=".csv,.json" hidden>
+          <div class="upload-icon">📁</div>
+          <h3>Drag & Drop or Click to Upload</h3>
+          <p>Supports <strong>.csv</strong> and <strong>.json</strong> files exported from the extension</p>
+          <button class="btn btn-primary" id="browseBtn">Browse Files</button>
+        </div>
+      </section>
 
-    <section class="info-section" id="infoSection">
-      <div class="info-grid">
-        <div class="info-card">
-          <div class="info-icon">🎯</div>
-          <h4>Purpose</h4>
-          <p>View and analyze hiring leads collected from LinkedIn using the <strong>Hiring Lead Collector</strong> Chrome extension. Upload your exported data to filter, search, and explore job opportunities.</p>
+      <section class="info-section" id="infoSection">
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-icon">🎯</div>
+            <h4>Purpose</h4>
+            <p>View and analyze hiring leads collected from LinkedIn using the <strong>Hiring Lead Collector</strong> Chrome extension. Upload your exported data to filter, search, and explore job opportunities.</p>
+          </div>
+          <div class="info-card">
+            <div class="info-icon">📥</div>
+            <h4>How to Use</h4>
+            <ol class="info-steps">
+              <li>Install the Chrome extension (download below)</li>
+              <li>Go to LinkedIn feed or search results (#hiring, #jobs)</li>
+              <li>Open extension → Set optional location/keyword filters; use the top-right gear to optionally add an Ollama Cloud API key for uncertain hiring posts</li>
+              <li>Click <strong>Start</strong> → Scroll through posts</li>
+              <li>Click <strong>Stop Collection</strong>, then separately click <strong>Export All Saved Leads</strong></li>
+              <li>Upload the <strong>.csv</strong> or <strong>.json</strong> file here</li>
+            </ol>
+          </div>
+          <div class="info-card">
+            <div class="info-icon">✨</div>
+            <h4>Features</h4>
+            <ul class="info-features">
+              <li><strong>Smart Filters:</strong> By email, apply link, company</li>
+              <li><strong>Live Search:</strong> Across all fields instantly</li>
+              <li><strong>Sort & Paginate:</strong> By date, author (25/page)</li>
+              <li><strong>Detail Panel:</strong> Click row for full lead info</li>
+              <li><strong>Description Modal:</strong> Click description to expand</li>
+              <li><strong>Hiring screening:</strong> A local guard labels candidates <code>KEEP</code>, <code>DENY</code>, or <code>CONFUSE</code>; all labels are saved/exported for testing, and Ollama Cloud can review uncertain cases</li>
+              <li><strong>Responsive:</strong> Works on mobile & desktop</li>
+            </ul>
+          </div>
+          <div class="info-card">
+            <div class="info-icon">📊</div>
+            <h4>Data Fields</h4>
+            <ul class="info-features">
+              <li>Post date & original label</li>
+              <li>Author name & company</li>
+              <li>Full post description</li>
+              <li>Extracted emails</li>
+              <li>Application links (lnkd.in, job URLs)</li>
+              <li>Post URL (open on LinkedIn)</li>
+              <li>Relevance & status tracking</li>
+            </ul>
+          </div>
         </div>
-        <div class="info-card">
-          <div class="info-icon">📥</div>
-          <h4>How to Use</h4>
-          <ol class="info-steps">
-            <li>Install the Chrome extension (download below)</li>
-            <li>Go to LinkedIn feed or search results (#hiring, #jobs)</li>
-            <li>Open extension → Set optional location/keyword filters; use the top-right gear to optionally add an Ollama Cloud API key for uncertain hiring posts</li>
-            <li>Click <strong>Start</strong> → Scroll through posts</li>
-            <li>Click <strong>Stop Collection</strong>, then separately click <strong>Export All Saved Leads</strong></li>
-            <li>Upload the <strong>.csv</strong> or <strong>.json</strong> file here</li>
-          </ol>
-        </div>
-        <div class="info-card">
-          <div class="info-icon">✨</div>
-          <h4>Features</h4>
-          <ul class="info-features">
-            <li><strong>Smart Filters:</strong> By email, apply link, company</li>
-            <li><strong>Live Search:</strong> Across all fields instantly</li>
-            <li><strong>Sort & Paginate:</strong> By date, author (25/page)</li>
-            <li><strong>Detail Panel:</strong> Click row for full lead info</li>
-            <li><strong>Description Modal:</strong> Click description to expand</li>
-            <li><strong>Hiring screening:</strong> A local guard labels candidates <code>KEEP</code>, <code>DENY</code>, or <code>CONFUSE</code>; all labels are saved/exported for testing, and Ollama Cloud can review uncertain cases</li>
-            <li><strong>Responsive:</strong> Works on mobile & desktop</li>
-          </ul>
-        </div>
-        <div class="info-card">
-          <div class="info-icon">📊</div>
-          <h4>Data Fields</h4>
-          <ul class="info-features">
-            <li>Post date & original label</li>
-            <li>Author name & company</li>
-            <li>Full post description</li>
-            <li>Extracted emails</li>
-            <li>Application links (lnkd.in, job URLs)</li>
-            <li>Post URL (open on LinkedIn)</li>
-            <li>Relevance & status tracking</li>
-          </ul>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="stats-section hidden" id="statsSection">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-value" id="totalLeads">0</span>
-          <span class="stat-label">Total Leads</span>
+      <section class="stats-section hidden" id="statsSection">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="totalLeads">0</span>
+            <span class="stat-label">Total Leads</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="withEmail">0</span>
+            <span class="stat-label">With Email</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="withLink">0</span>
+            <span class="stat-label">With Apply Link</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="withCompany">0</span>
+            <span class="stat-label">With Company</span>
+          </div>
         </div>
-        <div class="stat-card">
-          <span class="stat-value" id="withEmail">0</span>
-          <span class="stat-label">With Email</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value" id="withLink">0</span>
-          <span class="stat-label">With Apply Link</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value" id="withCompany">0</span>
-          <span class="stat-label">With Company</span>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="filters-section hidden" id="filtersSection">
-      <div class="filters-row">
-        <input type="text" id="searchInput" placeholder="🔍 Search leads..." class="filter-input">
-        <select id="emailFilter" class="filter-select">
-          <option value="">All Email Status</option>
-          <option value="has-email">Has Email</option>
-          <option value="no-email">No Email</option>
-        </select>
-        <select id="linkFilter" class="filter-select">
-          <option value="">All Link Status</option>
-          <option value="has-link">Has Apply Link</option>
-          <option value="no-link">No Apply Link</option>
-        </select>
-        <select id="companyFilter" class="filter-select">
-          <option value="">All Companies</option>
-        </select>
-        <select id="sortSelect" class="filter-select">
-          <option value="date-desc">Newest First</option>
-          <option value="date-asc">Oldest First</option>
-          <option value="author-asc">Author A-Z</option>
-          <option value="author-desc">Author Z-A</option>
-        </select>
-      </div>
-    </section>
+      <section class="filters-section hidden" id="filtersSection">
+        <div class="filters-row">
+          <input type="text" id="searchInput" placeholder="🔍 Search leads..." class="filter-input">
+          <select id="emailFilter" class="filter-select">
+            <option value="">All Email Status</option>
+            <option value="has-email">Has Email</option>
+            <option value="no-email">No Email</option>
+          </select>
+          <select id="linkFilter" class="filter-select">
+            <option value="">All Link Status</option>
+            <option value="has-link">Has Apply Link</option>
+            <option value="no-link">No Apply Link</option>
+          </select>
+          <select id="companyFilter" class="filter-select">
+            <option value="">All Companies</option>
+          </select>
+          <select id="sortSelect" class="filter-select">
+            <option value="date-desc">Newest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="author-asc">Author A-Z</option>
+            <option value="author-desc">Author Z-A</option>
+          </select>
+        </div>
+      </section>
 
-    <section class="table-section hidden" id="tableSection">
-      <div class="table-container">
-        <table id="leadsTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Author</th>
-              <th>Company</th>
-              <th>Description</th>
-              <th>Emails</th>
-              <th>Apply Links</th>
-              <th>Post URL</th>
-              <th>Relevance</th>
-            </tr>
-          </thead>
-          <tbody id="leadsBody"></tbody>
-        </table>
-      </div>
-      <div class="pagination" id="pagination">
-        <button class="btn btn-secondary" id="prevPage" disabled>Previous</button>
-        <span class="page-info" id="pageInfo">Page 1 of 1</span>
-        <button class="btn btn-secondary" id="nextPage" disabled>Next</button>
-      </div>
-    </section>
+      <section class="table-section hidden" id="tableSection">
+        <div class="table-container">
+          <table id="leadsTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Author</th>
+                <th>Company</th>
+                <th>Description</th>
+                <th>Emails</th>
+                <th>Apply Links</th>
+                <th>Post URL</th>
+                <th>Relevance</th>
+              </tr>
+            </thead>
+            <tbody id="leadsBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination">
+          <button class="btn btn-secondary" id="prevPage" disabled>Previous</button>
+          <span class="page-info" id="pageInfo">Page 1 of 1</span>
+          <button class="btn btn-secondary" id="nextPage" disabled>Next</button>
+        </div>
+      </section>
 
-    <section class="detail-section hidden" id="detailSection">
-      <div class="detail-panel">
-        <button class="close-detail" id="closeDetail">×</button>
-        <div id="detailContent"></div>
-      </div>
-    </section>
+      <section class="detail-section hidden" id="detailSection">
+        <div class="detail-panel">
+          <button class="close-detail" id="closeDetail">×</button>
+          <div id="detailContent"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========== AUTO-APPLY TAB ========== -->
+    <div id="panelApply" class="tab-panel" role="tabpanel" aria-labelledby="tabApply" hidden>
+      <section class="apply-hero">
+        <h2>Auto-Apply Workflow</h2>
+        <p>
+          Score each exported job post against your CV with Ollama Cloud.
+          If the score is <strong>greater than 70</strong>, generate a short human email and send it with your CV PDF.
+          Progress is saved so duplicates are never processed twice.
+        </p>
+      </section>
+
+      <section class="apply-flow">
+        <h3>Runtime flow</h3>
+        <ol class="apply-steps">
+          <li>Load <code>hiring-leads.csv</code> + <code>cv.md</code></li>
+          <li>Skip leads already listed in <code>apply-results.json</code></li>
+          <li>Send post + CV to Ollama → get match <code>score</code></li>
+          <li>Always save the score for that post</li>
+          <li>If score &gt; 70 → generate email → send email + <code>cv.pdf</code> → save</li>
+          <li>If score ≤ 70 → save with score only (no email)</li>
+          <li>Move to the next post</li>
+          <li>If any Ollama call fails → print the error and stop</li>
+        </ol>
+      </section>
+
+      <section class="apply-section">
+        <h3>1. Required files (exact names)</h3>
+        <p>Put these inside the <code>apply-workflow/</code> folder:</p>
+        <div class="file-table-wrap">
+          <table class="file-table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>hiring-leads.csv</code></td>
+                <td>Leads exported from the extension (must use this exact filename)</td>
+              </tr>
+              <tr>
+                <td><code>cv.pdf</code></td>
+                <td>Full CV PDF attached to application emails</td>
+              </tr>
+              <tr>
+                <td><code>cv.md</code></td>
+                <td>Compressed CV text used by Ollama (keeps tokens low)</td>
+              </tr>
+              <tr>
+                <td><code>.env</code></td>
+                <td>Ollama API key + SMTP credentials (copy from <code>.env.example</code>)</td>
+              </tr>
+              <tr>
+                <td><code>apply-results.json</code></td>
+                <td>Created automatically — processing log / dedupe store</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="apply-section">
+        <h3>2. Export and name the leads file</h3>
+        <ol class="apply-steps">
+          <li>In the Chrome extension, click <strong>Export All Saved Leads</strong> (CSV).</li>
+          <li>Move the download into <code>apply-workflow/</code>.</li>
+          <li>Rename it exactly to <code>hiring-leads.csv</code> (overwrite when you refresh leads).</li>
+        </ol>
+      </section>
+
+      <section class="apply-section">
+        <h3>3. Create compressed <code>cv.md</code> (token-saving)</h3>
+        <p>
+          Ollama compares <code>cv.md</code> + each job post. Use a short markdown CV, not the full PDF text.
+          Copy the prompt below into ChatGPT / Claude / any AI, attach your real CV, and save the reply as <code>apply-workflow/cv.md</code>.
+          The same prompt is also in <code>apply-workflow/cv-compress-prompt.md</code>.
+        </p>
+        <div class="prompt-box">
+          <div class="prompt-box-header">
+            <span>CV compress prompt</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="copyCvPromptBtn">Copy prompt</button>
+          </div>
+<pre id="cvCompressPrompt" class="prompt-pre">You are compressing a CV for a low-token job-match pipeline.
+
+Rewrite the CV into a short markdown file. Rules:
+
+1. Output ONLY the compressed CV markdown. No intro, no tips, no extra commentary.
+2. Keep facts accurate. Do not invent employers, titles, dates, skills, or metrics.
+3. Target 250–450 words max.
+4. Use this exact structure and headings:
+
+# Name
+- Role target: &lt;1 short line&gt;
+- Location / work mode: &lt;city or Remote&gt;
+- Years experience: &lt;number or range&gt;
+- Email: &lt;email&gt;
+- Phone: &lt;optional&gt;
+- Links: &lt;portfolio / LinkedIn / GitHub, optional&gt;
+
+## Summary
+&lt;2 short sentences max&gt;
+
+## Core skills
+- Languages:
+- Frameworks:
+- Tools / cloud / DB:
+- Soft / domain:
+
+## Experience
+### &lt;Title&gt; — &lt;Company&gt; (&lt;dates&gt;)
+- &lt;1–2 bullets: impact + stack only&gt;
+
+### &lt;Title&gt; — &lt;Company&gt; (&lt;dates&gt;)
+- &lt;1–2 bullets&gt;
+
+## Education
+- &lt;degree / school / year&gt;
+
+## Highlights
+- &lt;up to 3 short proof points that help match job posts&gt;
+
+5. Prefer nouns and concrete stack names over fluff (“passionate”, “team player”, “results-driven”).
+6. Drop hobbies, references, photo notes, and long project essays unless they prove a skill.
+7. If something is unknown, omit the line instead of guessing.</pre>
+        </div>
+        <p class="hint-text">Also place your real PDF as <code>cv.pdf</code> in the same folder (this is what gets emailed).</p>
+      </section>
+
+      <section class="apply-section">
+        <h3>4. Create <code>.env</code> credentials</h3>
+        <ol class="apply-steps">
+          <li><code>cd apply-workflow</code></li>
+          <li><code>cp .env.example .env</code></li>
+          <li>Fill in values:</li>
+        </ol>
+<pre class="code-block">OLLAMA_API_KEY=...          # https://ollama.com/settings/keys
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASSWORD=your-app-password
+EMAIL_FROM=you@gmail.com
+EMAIL_FROM_NAME=Your Name
+MIN_SCORE=70</pre>
+        <p class="hint-text">
+          Gmail: use an <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener">App Password</a>, not your normal login password.
+        </p>
+      </section>
+
+      <section class="apply-section">
+        <h3>5. Install Python libraries and run</h3>
+<pre class="code-block">cd apply-workflow
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python apply_jobs.py</pre>
+        <ul class="info-features">
+          <li>Each lead is keyed by <code>post_url</code> (fallback: emails + description) inside <code>apply-results.json</code>.</li>
+          <li>Re-running the script skips anything already processed — no duplicate emails.</li>
+          <li>Low-score posts are still saved with their score.</li>
+          <li>On Ollama failure the script prints the error and exits; prior progress stays saved.</li>
+          <li>Email send failure also stops the run, and that lead is <em>not</em> marked processed so you can retry.</li>
+        </ul>
+      </section>
+
+      <section class="apply-section warn-box">
+        <h3>Before you run for real</h3>
+        <ul class="info-features">
+          <li>Only leads with an email address can be emailed; others are skipped and logged.</li>
+          <li>Start with a small CSV (a few rows) to verify scoring and SMTP.</li>
+          <li>You are responsible for how you contact people — use this carefully.</li>
+        </ul>
+      </section>
+    </div>
   </main>
 
   <footer class="footer">
     <div class="container">
       <p>📥 <a href="./lead-collector-extention.zip" download="hiring-lead-collector.zip">Download Extension (ZIP)</a> |
-      <a href="lead-collector-extention/" target="_blank">Extension Source</a> | 
+      <a href="lead-collector-extention/" target="_blank">Extension Source</a> |
+      <a href="apply-workflow/" target="_blank">Apply Workflow Source</a> |
       Built for <a href="https://github.com" target="_blank">GitHub Pages</a> deployment</p>
     </div>
   </footer>

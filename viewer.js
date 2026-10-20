@@ -577,3 +577,47 @@ function debounce(fn, delay) {
 // Make functions globally accessible
 window.openDetail = openDetail;
 window.openDescModal = openDescModal;
+
+// Main tabs: Data Viewer / Auto-Apply
+(function initTabs() {
+  const buttons = document.querySelectorAll('.tab-btn');
+  const panels = {
+    viewer: document.getElementById('panelViewer'),
+    apply: document.getElementById('panelApply')
+  };
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      buttons.forEach((b) => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      Object.entries(panels).forEach(([name, panel]) => {
+        if (!panel) return;
+        const active = name === tab;
+        panel.classList.toggle('active', active);
+        panel.hidden = !active;
+      });
+    });
+  });
+
+  const copyBtn = document.getElementById('copyCvPromptBtn');
+  const promptEl = document.getElementById('cvCompressPrompt');
+  if (copyBtn && promptEl) {
+    copyBtn.addEventListener('click', async () => {
+      const text = promptEl.textContent || '';
+      try {
+        await navigator.clipboard.writeText(text);
+        const previous = copyBtn.textContent;
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => {
+          copyBtn.textContent = previous;
+        }, 1500);
+      } catch (_) {
+        copyBtn.textContent = 'Copy failed';
+      }
+    });
+  }
+})();

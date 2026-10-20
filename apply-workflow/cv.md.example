@@ -1,0 +1,29 @@
+# Jane Doe
+- Role target: Backend Python developer
+- Location / work mode: Lahore / Remote
+- Years experience: 4
+- Email: jane@example.com
+- Links: https://github.com/janedoe
+
+## Summary
+Backend engineer focused on APIs, data pipelines, and reliable production systems.
+
+## Core skills
+- Languages: Python, SQL
+- Frameworks: Django, FastAPI
+- Tools / cloud / DB: PostgreSQL, Redis, Docker, AWS
+- Soft / domain: hiring-tooling, scraping pipelines
+
+## Experience
+### Software Engineer — Acme Corp (2022–present)
+- Built REST APIs and background jobs serving 50k monthly users (Django, PostgreSQL)
+
+### Junior Developer — Startup Co (2020–2022)
+- Shipped ETL scripts and admin dashboards (Python, FastAPI)
+
+## Education
+- BS Computer Science — Example University (2020)
+
+## Highlights
+- Reduced API p95 latency 35% with query and cache work
+- Owned CI deploy pipeline for a small backend team
