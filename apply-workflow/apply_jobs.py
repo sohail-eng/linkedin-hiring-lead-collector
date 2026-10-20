@@ -169,6 +169,24 @@ def parse_json_object(text: str) -> dict:
     return data
 
 
+def extract_message_text(payload: dict) -> str:
+    """gpt-oss may put the answer in message.content, or only in message.thinking."""
+    message = payload.get("message") or {}
+    if not isinstance(message, dict):
+        message = {}
+
+    for key in ("content", "thinking"):
+        value = message.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    # Some responses nest the final answer differently.
+    response_text = payload.get("response")
+    if isinstance(response_text, str) and response_text.strip():
+        return response_text.strip()
+    return ""
+
+
 def ollama_chat(api_key: str, system: str, user: str) -> dict:
     try:
         response = requests.post(
@@ -180,8 +198,10 @@ def ollama_chat(api_key: str, system: str, user: str) -> dict:
             json={
                 "model": OLLAMA_MODEL,
                 "stream": False,
-                "think": False,
-                "options": {"temperature": 0, "num_predict": 512},
+                # gpt-oss uses named think levels; "low" keeps reasoning short
+                # so answer tokens still fit in num_predict.
+                "think": "low",
+                "options": {"temperature": 0, "num_predict": 2048},
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
@@ -210,9 +230,16 @@ def ollama_chat(api_key: str, system: str, user: str) -> dict:
     except ValueError as exc:
         raise OllamaError("Ollama returned a non-JSON response body.") from exc
 
-    content = (payload.get("message") or {}).get("content")
-    if not isinstance(content, str) or not content.strip():
-        raise OllamaError("Ollama returned an empty message.")
+    content = extract_message_text(payload)
+    if not content:
+        done_reason = payload.get("done_reason") or payload.get("done")
+        message = payload.get("message") or {}
+        keys = list(message.keys()) if isinstance(message, dict) else []
+        raise OllamaError(
+            "Ollama returned an empty message "
+            f"(done_reason={done_reason!r}, message_keys={keys}). "
+            "Try again, or check Ollama usage/credits."
+        )
     return parse_json_object(content)
 
 
