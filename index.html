@@ -174,10 +174,37 @@
           If the score is <strong>greater than 70</strong>, generate a short human email and send it with your CV PDF.
           Progress is saved so duplicates are never processed twice.
         </p>
+        <p class="apply-download-row">
+          <a class="btn btn-primary" href="./apply-workflow.zip" download="apply-workflow.zip">Download Auto-Apply (ZIP)</a>
+        </p>
+        <p class="hint-text">You only need this ZIP from the site — no need to clone the GitHub repo.</p>
+      </section>
+
+      <section class="apply-section">
+        <h3>1. Download and extract</h3>
+        <ol class="apply-steps">
+          <li>Click <strong>Download Auto-Apply (ZIP)</strong> above (or use the footer link).</li>
+          <li>Extract the ZIP anywhere on your computer (Downloads is fine).</li>
+          <li>You should get a folder named <code>apply-workflow</code> containing:
+            <ul>
+              <li><code>apply_jobs.py</code></li>
+              <li><code>requirements.txt</code></li>
+              <li><code>.env.example</code></li>
+              <li><code>cv-compress-prompt.md</code></li>
+              <li><code>cv.md.example</code></li>
+              <li><code>README.md</code></li>
+            </ul>
+          </li>
+          <li>Open a terminal <strong>inside</strong> that <code>apply-workflow</code> folder for the steps below.</li>
+        </ol>
+        <p class="hint-text">
+          macOS / Linux: right-click ZIP → Open / Extract, or <code>unzip apply-workflow.zip</code>.
+          Windows: right-click → Extract All.
+        </p>
       </section>
 
       <section class="apply-flow">
-        <h3>Runtime flow</h3>
+        <h3>What the script does</h3>
         <ol class="apply-steps">
           <li>Load <code>hiring-leads.csv</code> + <code>cv.md</code></li>
           <li>Skip leads already listed in <code>apply-results.json</code></li>
@@ -191,8 +218,8 @@
       </section>
 
       <section class="apply-section">
-        <h3>1. Required files (exact names)</h3>
-        <p>Put these inside the <code>apply-workflow/</code> folder:</p>
+        <h3>2. Required files you add (exact names)</h3>
+        <p>After extracting, put these <strong>inside the same</strong> <code>apply-workflow</code> folder:</p>
         <div class="file-table-wrap">
           <table class="file-table">
             <thead>
@@ -228,20 +255,20 @@
       </section>
 
       <section class="apply-section">
-        <h3>2. Export and name the leads file</h3>
+        <h3>3. Export and name the leads file</h3>
         <ol class="apply-steps">
           <li>In the Chrome extension, click <strong>Export All Saved Leads</strong> (CSV).</li>
-          <li>Move the download into <code>apply-workflow/</code>.</li>
+          <li>Move that file into your extracted <code>apply-workflow</code> folder.</li>
           <li>Rename it exactly to <code>hiring-leads.csv</code> (overwrite when you refresh leads).</li>
         </ol>
       </section>
 
       <section class="apply-section">
-        <h3>3. Create compressed <code>cv.md</code> (token-saving)</h3>
+        <h3>4. Create compressed <code>cv.md</code> (token-saving)</h3>
         <p>
           Ollama compares <code>cv.md</code> + each job post. Use a short markdown CV, not the full PDF text.
-          Copy the prompt below into ChatGPT / Claude / any AI, attach your real CV, and save the reply as <code>apply-workflow/cv.md</code>.
-          The same prompt is also in <code>apply-workflow/cv-compress-prompt.md</code>.
+          Copy the prompt below into ChatGPT / Claude / any AI, attach your real CV, and save the reply as <code>cv.md</code> inside your extracted <code>apply-workflow</code> folder.
+          The same prompt is also in <code>cv-compress-prompt.md</code> inside the ZIP.
         </p>
         <div class="prompt-box">
           <div class="prompt-box-header">
@@ -295,11 +322,14 @@ Rewrite the CV into a short markdown file. Rules:
       </section>
 
       <section class="apply-section">
-        <h3>4. Create <code>.env</code> credentials</h3>
+        <h3>5. Create <code>.env</code> credentials</h3>
         <ol class="apply-steps">
-          <li><code>cd apply-workflow</code></li>
-          <li><code>cp .env.example .env</code></li>
-          <li>Fill in values:</li>
+          <li>Open a terminal in the extracted <code>apply-workflow</code> folder.</li>
+          <li>Copy the example env file:
+            <br>macOS / Linux: <code>cp .env.example .env</code>
+            <br>Windows (Command Prompt): <code>copy .env.example .env</code>
+          </li>
+          <li>Open <code>.env</code> in a text editor and fill in values:</li>
         </ol>
 <pre class="code-block">OLLAMA_API_KEY=...          # https://ollama.com/settings/keys
 SMTP_HOST=smtp.gmail.com
@@ -315,9 +345,9 @@ MIN_SCORE=70</pre>
       </section>
 
       <section class="apply-section">
-        <h3>5. Install Python libraries and run</h3>
-<pre class="code-block">cd apply-workflow
-python3 -m venv .venv
+        <h3>6. Install Python libraries and run</h3>
+        <p>You need <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">Python 3</a> installed. Then in the extracted <code>apply-workflow</code> folder:</p>
+<pre class="code-block">python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python apply_jobs.py</pre>
@@ -344,8 +374,7 @@ python apply_jobs.py</pre>
   <footer class="footer">
     <div class="container">
       <p>📥 <a href="./lead-collector-extention.zip" download="hiring-lead-collector.zip">Download Extension (ZIP)</a> |
-      <a href="lead-collector-extention/" target="_blank">Extension Source</a> |
-      <a href="apply-workflow/" target="_blank">Apply Workflow Source</a> |
+      <a href="./apply-workflow.zip" download="apply-workflow.zip">Download Auto-Apply (ZIP)</a> |
       Built for <a href="https://github.com" target="_blank">GitHub Pages</a> deployment</p>
     </div>
   </footer>

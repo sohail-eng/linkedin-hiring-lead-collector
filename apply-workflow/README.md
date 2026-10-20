@@ -2,9 +2,9 @@
 
 Python script that scores exported leads against your compressed CV (`cv.md`), drafts a short email when the score is **greater than** `MIN_SCORE` (default 70), and sends that email with `cv.pdf` attached.
 
-Full setup steps live on the site **Auto-Apply** tab (`index.html`).
+If you opened this from the GitHub Pages site: download **`apply-workflow.zip`**, extract it, then follow the **Auto-Apply** tab steps on the site.
 
-## Quick start
+## Quick start (after extracting the ZIP)
 
 ```bash
 cd apply-workflow

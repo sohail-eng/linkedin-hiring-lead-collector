@@ -116,6 +116,20 @@ body {
   max-width: 720px;
 }
 
+.apply-download-row {
+  margin-top: 18px;
+  margin-bottom: 4px;
+}
+
+.apply-steps ul {
+  margin: 8px 0 8px 0.25rem;
+  padding-left: 1.1rem;
+}
+
+.apply-steps ul li {
+  margin-bottom: 4px;
+}
+
 .apply-flow,
 .apply-section {
   background: var(--card-bg);

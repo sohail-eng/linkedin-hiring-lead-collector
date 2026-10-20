@@ -108,14 +108,18 @@ linkedin-hiring-lead-collector/
 
 ### Auto-Apply (optional)
 
-Open the **Auto-Apply** tab on the site for full setup. Short version:
-
-1. Export leads from the extension → rename to `apply-workflow/hiring-leads.csv`
-2. Put `cv.pdf` and a compressed `cv.md` in `apply-workflow/` (use the CV compress prompt on that tab)
-3. Copy `.env.example` → `.env` (Ollama key + SMTP)
-4. `pip install -r requirements.txt` then `python apply_jobs.py`
+On the GitHub Pages site, open the **Auto-Apply** tab and download **`apply-workflow.zip`** (also linked in the footer). Extract it, then follow the on-page steps: add `hiring-leads.csv`, `cv.pdf`, `cv.md`, create `.env`, install deps, run `python apply_jobs.py`.
 
 Scores are always saved in `apply-results.json`. Emails (with CV PDF) are sent only when score &gt; 70. Re-runs skip already processed posts. Any Ollama failure prints the error and stops.
+
+After changing files under `apply-workflow/`, regenerate the ZIP before deploying:
+
+```bash
+zip -r apply-workflow.zip apply-workflow \
+  -x 'apply-workflow/.env' -x 'apply-workflow/cv.pdf' -x 'apply-workflow/cv.md' \
+  -x 'apply-workflow/hiring-leads.csv' -x 'apply-workflow/apply-results.json' \
+  -x 'apply-workflow/.venv/*' -x 'apply-workflow/__pycache__/*'
+```
 
 ---
 
