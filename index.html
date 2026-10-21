@@ -207,7 +207,7 @@
         <h3>What the script does</h3>
         <ol class="apply-steps">
           <li>Load <code>hiring-leads.csv</code> + <code>cv.md</code></li>
-          <li>Skip leads already listed in <code>apply-results.json</code></li>
+          <li>Skip leads already listed in <code>apply-results.json</code> (same post description)</li>
           <li>Send post + CV to Ollama → get match <code>score</code></li>
           <li>Always save the score for that post</li>
           <li>If score &gt; 70 → generate email → send email + <code>cv.pdf</code> → save</li>
@@ -352,8 +352,8 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python apply_jobs.py</pre>
         <ul class="info-features">
-          <li>Each lead is keyed by <code>post_url</code> (fallback: emails + description) inside <code>apply-results.json</code>.</li>
-          <li>Re-running the script skips anything already processed — no duplicate emails.</li>
+          <li>Each lead is keyed by a hash of the post <strong>description</strong> (saved in <code>apply-results.json</code>). Same text again → skip.</li>
+          <li>Re-running the script skips anything already processed — no duplicate emails / Ollama calls.</li>
           <li>Low-score posts are still saved with their score.</li>
           <li>On Ollama failure the script prints the error and exits; prior progress stays saved.</li>
           <li>Email send failure also stops the run, and that lead is <em>not</em> marked processed so you can retry.</li>

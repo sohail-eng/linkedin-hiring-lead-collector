@@ -8,6 +8,7 @@ Persists progress in apply-results.json so re-runs skip already-processed posts.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 import re
@@ -118,13 +119,76 @@ def save_results(results: dict) -> None:
     )
 
 
+def normalize_description(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip()).lower()
+
+
+def description_fingerprint(text: str) -> str:
+    """Stable id for a post body (survives process restarts; unlike Python hash())."""
+    normalized = normalize_description(text)
+    if not normalized:
+        return ""
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"desc:{digest}"
+
+
 def lead_key(row: dict) -> str:
+    description = (row.get("description") or "").strip()
+    fingerprint = description_fingerprint(description)
+    if fingerprint:
+        return fingerprint
     post_url = (row.get("post_url") or "").strip()
     if post_url:
-        return post_url
+        return f"url:{post_url}"
     emails = (row.get("emails") or "").strip().lower()
-    description = (row.get("description") or "").strip()
-    return f"{emails}|{hash(description)}"
+    return f"email:{emails}|empty-description"
+
+
+def build_processed_index(processed: dict) -> set[str]:
+    """Keys that count as already done (new desc: keys + legacy url keys + stored hashes)."""
+    known: set[str] = set(processed.keys())
+    for record in processed.values():
+        if not isinstance(record, dict):
+            continue
+        stored_hash = (record.get("description_hash") or "").strip()
+        if stored_hash:
+            known.add(stored_hash if stored_hash.startswith("desc:") else f"desc:{stored_hash}")
+        stored_desc = record.get("description")
+        if isinstance(stored_desc, str) and stored_desc.strip():
+            known.add(description_fingerprint(stored_desc))
+        post_url = (record.get("post_url") or "").strip()
+        if post_url:
+            known.add(post_url)
+            known.add(f"url:{post_url}")
+    return known
+
+
+def short_label(company: str, author: str, description: str, key: str) -> str:
+    label = company or author
+    if label:
+        return label
+    if description:
+        snippet = re.sub(r"\s+", " ", description).strip()
+        return (snippet[:48] + "…") if len(snippet) > 48 else snippet
+    return key[:48]
+
+
+RECORD_SEP = "*" * 58
+
+
+def print_banner(title: str) -> None:
+    line = "=" * 62
+    print()
+    print(line)
+    print(f"  {title}")
+    print(line)
+
+
+def print_lead_header(index: int, total: int, label: str) -> None:
+    print()
+    print(RECORD_SEP)
+    print(f"  [{index}/{total}]  {label}")
+    print()
 
 
 def parse_emails(raw: str) -> list[str]:
@@ -303,6 +367,35 @@ def send_email_with_cv(
         server.sendmail(from_email, [to_email], message.as_string())
 
 
+def base_record(
+    *,
+    status: str,
+    emails: list[str],
+    company: str,
+    author: str,
+    post_url: str,
+    description: str,
+    description_hash: str,
+    score=None,
+    reason: str = "",
+) -> dict:
+    return {
+        "status": status,
+        "score": score,
+        "reason": reason,
+        "emails": emails,
+        "company": company,
+        "author_name": author,
+        "post_url": post_url,
+        "description": description,
+        "description_hash": description_hash,
+        "subject": "",
+        "body": "",
+        "sent_to": "",
+        "processed_at": utc_now(),
+    }
+
+
 def main() -> None:
     require_files()
     config = load_config()
@@ -314,117 +407,178 @@ def main() -> None:
     leads = load_leads()
     results = load_results()
     processed = results["processed"]
+    known = build_processed_index(processed)
 
-    print(f"Loaded {len(leads)} leads from {LEADS_CSV.name}")
-    print(f"Already processed: {len(processed)}")
-    print(f"Min score to email: > {config['min_score']}")
-    print("-" * 60)
+    stats = {
+        "scored": 0,
+        "emailed": 0,
+        "low_score": 0,
+        "skipped_done": 0,
+        "skipped_no_email": 0,
+        "skipped_no_description": 0,
+    }
+
+    print_banner("Hiring Auto-Apply")
+    print(f"  Leads file        : {LEADS_CSV.name}")
+    print(f"  Leads loaded      : {len(leads)}")
+    print(f"  Already processed : {len(processed)}")
+    print(f"  Email if score    : > {config['min_score']}")
+    print(f"  Results file      : {RESULTS_JSON.name}")
+    print()
 
     for index, row in enumerate(leads, start=1):
-        key = lead_key(row)
         emails = parse_emails(row.get("emails") or "")
         company = (row.get("company") or "").strip()
         author = (row.get("author_name") or "").strip()
         description = (row.get("description") or "").strip()
-        label = company or author or key[:60]
+        post_url = (row.get("post_url") or "").strip()
+        key = lead_key(row)
+        desc_hash = description_fingerprint(description)
+        label = short_label(company, author, description, key)
 
-        if key in processed:
-            print(f"[{index}/{len(leads)}] SKIP (already processed): {label}")
+        print_lead_header(index, len(leads), label)
+
+        already = (
+            key in known
+            or key in processed
+            or (desc_hash and desc_hash in known)
+            or (post_url and post_url in known)
+            or (post_url and f"url:{post_url}" in known)
+        )
+        if already:
+            stats["skipped_done"] += 1
+            print("  Status : SKIP")
+            print("  Reason : already processed (same post description)")
             continue
 
         if not emails:
-            record = {
-                "status": "skipped_no_email",
-                "score": None,
-                "reason": "No email on lead",
-                "emails": [],
-                "company": company,
-                "author_name": author,
-                "post_url": (row.get("post_url") or "").strip(),
-                "processed_at": utc_now(),
-            }
+            record = base_record(
+                status="skipped_no_email",
+                emails=[],
+                company=company,
+                author=author,
+                post_url=post_url,
+                description=description,
+                description_hash=desc_hash or key,
+                reason="No email on lead",
+            )
             processed[key] = record
+            known.add(key)
+            if desc_hash:
+                known.add(desc_hash)
             save_results(results)
-            print(f"[{index}/{len(leads)}] SKIP (no email): {label}")
+            stats["skipped_no_email"] += 1
+            print("  Status : SKIP")
+            print("  Reason : no email on this lead")
             continue
 
         if not description:
-            record = {
-                "status": "skipped_no_description",
-                "score": None,
-                "reason": "Empty description",
-                "emails": emails,
-                "company": company,
-                "author_name": author,
-                "post_url": (row.get("post_url") or "").strip(),
-                "processed_at": utc_now(),
-            }
+            record = base_record(
+                status="skipped_no_description",
+                emails=emails,
+                company=company,
+                author=author,
+                post_url=post_url,
+                description="",
+                description_hash=key,
+                reason="Empty description",
+            )
             processed[key] = record
+            known.add(key)
             save_results(results)
-            print(f"[{index}/{len(leads)}] SKIP (no description): {label}")
+            stats["skipped_no_description"] += 1
+            print("  Status : SKIP")
+            print("  Reason : empty description")
             continue
 
-        print(f"[{index}/{len(leads)}] Scoring: {label}")
+        print("  Status : scoring with Ollama…")
         try:
             score, reason = score_match(config["api_key"], cv_text, description)
         except OllamaError as exc:
-            print(f"\nOllama error: {exc}")
-            print("Stopping. Progress so far is saved in apply-results.json.")
+            print()
+            print("  ✗ Ollama error")
+            print(f"    {exc}")
+            print()
+            print("  Stopping. Progress so far is saved in apply-results.json.")
             sys.exit(1)
 
-        record = {
-            "status": "scored",
-            "score": score,
-            "reason": reason,
-            "emails": emails,
-            "company": company,
-            "author_name": author,
-            "post_url": (row.get("post_url") or "").strip(),
-            "subject": "",
-            "body": "",
-            "sent_to": "",
-            "processed_at": utc_now(),
-        }
+        stats["scored"] += 1
+        record = base_record(
+            status="scored",
+            emails=emails,
+            company=company,
+            author=author,
+            post_url=post_url,
+            description=description,
+            description_hash=desc_hash,
+            score=score,
+            reason=reason,
+        )
 
         if score <= config["min_score"]:
             record["status"] = "skipped_low_score"
             processed[key] = record
+            known.add(key)
+            known.add(desc_hash)
             save_results(results)
-            print(f"  score={score} (<= {config['min_score']}) — saved, no email. {reason}")
+            stats["low_score"] += 1
+            print(f"  Score  : {score}  (need > {config['min_score']})")
+            print("  Status : saved — no email")
+            print(f"  Reason : {reason}")
             continue
 
-        print(f"  score={score} — generating email...")
+        print(f"  Score  : {score}  (above {config['min_score']})")
+        print("  Status : generating application email…")
         try:
             subject, body = generate_email(
                 config["api_key"], cv_text, description, company, author
             )
         except OllamaError as exc:
-            print(f"\nOllama error: {exc}")
-            print("Stopping. Progress so far is saved in apply-results.json.")
+            print()
+            print("  ✗ Ollama error")
+            print(f"    {exc}")
+            print()
+            print("  Stopping. Progress so far is saved in apply-results.json.")
             sys.exit(1)
 
         record["subject"] = subject
         record["body"] = body
         to_email = emails[0]
 
-        print(f"  Sending to {to_email} with cv.pdf ...")
+        print(f"  Status : sending to {to_email} (with cv.pdf)…")
         try:
             send_email_with_cv(config["smtp"], to_email, subject, body)
         except Exception as exc:
-            print(f"\nEmail send failed: {exc}")
-            print("Stopping. This lead was NOT marked processed so you can retry.")
+            print()
+            print("  ✗ Email send failed")
+            print(f"    {exc}")
+            print()
+            print("  Stopping. This lead was NOT marked processed so you can retry.")
             sys.exit(1)
 
         record["status"] = "emailed"
         record["sent_to"] = to_email
         record["processed_at"] = utc_now()
         processed[key] = record
+        known.add(key)
+        known.add(desc_hash)
         save_results(results)
-        print(f"  Sent. Saved score={score}.")
+        stats["emailed"] += 1
+        print("  Status : SENT ✓")
+        print(f"  Saved  : score={score}, to={to_email}")
         time.sleep(1.5)
 
-    print("-" * 60)
-    print(f"Done. Results: {RESULTS_JSON}")
+    print_banner("Run complete")
+    print(f"  Scored this run     : {stats['scored']}")
+    print(f"  Emails sent         : {stats['emailed']}")
+    print(f"  Below min score     : {stats['low_score']}")
+    print(f"  Already processed   : {stats['skipped_done']}")
+    print(f"  Skipped (no email)  : {stats['skipped_no_email']}")
+    print(f"  Skipped (no text)   : {stats['skipped_no_description']}")
+    print()
+    print(f"  Results saved to:")
+    print(f"  {RESULTS_JSON}")
+    print()
 
 
 if __name__ == "__main__":
